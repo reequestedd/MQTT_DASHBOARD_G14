@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARJUNA EV — GEN 14 Telemetry</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0: #060b18;
+  --bg1: #0b1325;
+  --bg2: #101d38;
+  --bg3: #172545;
+  --gold: #d4a843;
+  --gold2: #f5cc6a;
+  --gold3: #7a5a18;
+  --cyan: #3dd6f5;
+  --cyan2: #0a4a5a;
+  --green: #2ecc71;
+  --red: #e74c3c;
+  --amber: #f39c12;
+  --border: #1e3360;
+  --border2: #2a4a80;
+  --text-dim: #4a6090;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg0);
+  color: var(--gold);
+  font-family: 'Rajdhani', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(61,214,245,0.06) 0%, transparent 60%);
+}
+
+/* ====== SCANLINES ====== */
+body::before {
+  content:'';
+  position:fixed; inset:0; pointer-events:none; z-index:9999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px);
+}
+
+/* ====== MAIN GRID ====== */
+.root {
+  display: grid;
+  grid-template-rows: 52px 1fr 48px;
+  grid-template-columns: 1fr;
+  height: 100vh;
+  padding: 6px;
+  gap: 5px;
+}
+
+/* ====== TOPBAR ====== */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 14px;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding-right: 14px;
+  border-right: 1px solid var(--border);
+}
+
+.brand-icon {
+  width: 36px; height: 36px;
+  border: 2px solid var(--gold3);
+  border-radius: 50%;
+  display: flex; align-items:center; justify-content:center;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; font-weight: 700;
+  color: var(--gold2);
+  background: var(--bg3);
+}
+
+.brand-text .t1 { font-family:'Orbitron',monospace; font-size:13px; font-weight:700; color:var(--gold2); letter-spacing:3px; }
+.brand-text .t2 { font-size:10px; color:var(--text-dim); letter-spacing:4px; }
+
+.top-pills {
+  display: flex; gap: 6px; align-items: center;
+  flex: 1;
+}
+
+.top-pill {
+  padding: 3px 12px;
+  border-radius: 2px;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 2px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text-dim);
+  transition: all 0.2s;
+}
+.top-pill.on {
+  background: rgba(46,204,113,0.15);
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 0 10px rgba(46,204,113,0.2);
+}
+.top-pill.warn {
+  background: rgba(231,76,60,0.15);
+  border-color: var(--red);
+  color: var(--red);
+  animation: pulse-red 1s step-end infinite;
+}
+@keyframes pulse-red { 50% { opacity: 0.3; } }
+
+.top-spacer { flex: 1; }
+
+.conn-badge {
+  display: flex; align-items:center; gap:6px;
+  font-family:'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--text-dim);
+}
+.conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border2);
+  transition: all 0.3s;
+}
+.conn-dot.on  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.conn-dot.err { background: var(--red);   box-shadow: 0 0 8px var(--red); }
+
+.cfg-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-family:'Orbitron',monospace;
+  font-size: 9px; letter-spacing:1px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+}
+.cfg-btn:hover { border-color:var(--gold3); color:var(--gold); }
+
+/* ====== MAIN CONTENT ====== */
+.content {
+  display: grid;
+  grid-template-columns: 200px 1fr 220px;
+  gap: 5px;
+  min-height: 0;
+}
+
+/* ====== LEFT COLUMN ====== */
+.left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* card base */
+.card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.card-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* PEDAL BARS */
+.pedal-section { flex: 0 0 auto; }
+
+.pedal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  height: 140px;
+}
+
+.pedal-bar {
+  display: flex; flex-direction:column; align-items:center;
+  gap: 4px;
+}
+
+.pedal-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.pedal-track {
+  flex: 1; width: 100%;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  position: relative; overflow: hidden;
+}
+
+.pedal-fill {
+  position: absolute; bottom:0; left:0; right:0;
+  transition: height 0.1s ease;
+  height: 0%;
+}
+.pedal-fill.apps { background: linear-gradient(0deg, #7a5a18, var(--gold)); }
+.pedal-fill.bse  { background: linear-gradient(0deg, #4a0a80, #c040ff); }
+
+.pedal-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 16px; font-weight: 700;
+  color: var(--gold2);
+}
+
+/* FUSE STATUS */
+.fuse-section { flex: 0 0 auto; }
+
+.fuse-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.fuse-item {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  transition: all 0.2s;
+}
+
+.fuse-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border2);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.fuse-item.ok .fuse-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.fuse-item.ok { border-color: rgba(46,204,113,0.3); }
+.fuse-item.fault .fuse-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.fuse-item.fault { border-color: rgba(231,76,60,0.4); background: rgba(231,76,60,0.06); }
+
+.fuse-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+.fuse-item.ok .fuse-name { color: var(--green); }
+.fuse-item.fault .fuse-name { color: var(--red); }
+
+/* LV BATTERY */
+.lv-section { flex: 1; }
+
+.lv-vals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.lv-val-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.lv-val-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px; font-weight: 700;
+  color: var(--gold2);
+  display: block;
+}
+
+.lv-val-unit {
+  font-size: 11px; color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+/* ====== CENTER COLUMN ====== */
+.center-col {
+  display: grid;
+  grid-template-rows: 1fr 160px;
+  gap: 5px;
+  min-height: 0;
+}
+
+/* TOP: RPM + MAP */
+.center-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  min-height: 0;
+}
+
+/* RPM BIG */
+.rpm-card {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.rpm-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(212,168,67,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.rpm-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px; letter-spacing: 5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.rpm-big {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(48px, 7vw, 88px);
+  font-weight: 900;
+  color: var(--gold2);
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(212,168,67,0.3);
+  letter-spacing: -2px;
+}
+
+.rpm-unit {
+  font-family: 'Orbitron', monospace;
+  font-size: 14px; letter-spacing: 5px;
+  color: var(--gold3);
+  margin-top: 4px;
+}
+
+.rpm-sub {
+  display: flex; gap: 16px;
+  margin-top: 10px;
+}
+
+.rpm-sub-item {
+  text-align: center;
+}
+.rpm-sub-item span {
+  display: block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  color: var(--gold);
+}
+.rpm-sub-item small {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 2px;
+}
+
+/* RPM SLIDER HORIZONTAL */
+.rpm-slider-wrap {
+  width: 90%;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rpm-slider-track {
+  width: 100%; height: 8px;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.rpm-slider-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gold3), var(--gold), var(--gold2));
+  transition: width 0.12s ease;
+  position: relative;
+}
+
+.rpm-slider-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--gold2);
+}
+
+.rpm-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1px;
+}
+
+.rpm-slider-ticks span {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+/* SPEED near RPM */
+.rpm-speed-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.rpm-speed-box {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 4px 14px;
+}
+
+.rpm-speed-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 28px; font-weight: 700;
+  color: var(--cyan);
+}
+
+.rpm-speed-unit {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px; letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+/* MAP CARD */
+.map-card { padding: 0; overflow: hidden; position: relative; }
+
+#map { width: 100%; height: 100%; }
+
+.map-overlay {
+  position: absolute;
+  top: 8px; left: 8px;
+  background: rgba(6,11,24,0.85);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--cyan);
+  z-index: 500;
+}
+
+/* CENTER BOTTOM: IMU + SUS + HV */
+.center-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+/* IMU CARD */
+.imu-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+
+.imu-val {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 4px;
+  text-align: center;
+}
+
+.imu-val-num {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px; color: var(--cyan);
+  display: block;
+}
+.imu-val-lbl {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+}
+
+/* IMU horizon indicator */
+.imu-horizon {
+  width: 100%; height: 50px;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 6px;
+  position: relative; overflow: hidden;
+}
+
+.horizon-sky {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(61,214,245,0.15) 0%, transparent 50%);
+}
+
+.horizon-line {
+  position: absolute;
+  width: 100%; height: 2px;
+  background: var(--gold);
+  top: 50%;
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.horizon-center {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%,-50%);
+  width: 20px; height: 2px;
+  background: var(--gold2);
+}
+
+/* SUS CARD */
+.sus-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  height: 100%;
+  align-content: start;
+}
+
+.sus-col { display: flex; flex-direction: column; gap: 4px; }
+
+.sus-lbl { font-size: 9px; color:var(--text-dim); letter-spacing:2px; text-align:center; }
+
+.sus-bar {
+  flex: 1;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+  min-height: 40px;
+}
+
+.sus-fill {
+  position: absolute; bottom:0; left:0; right:0;
+  background: linear-gradient(0deg, var(--border2), var(--cyan2), var(--cyan));
+  height: 0%;
+  transition: height 0.15s ease;
+}
+
+.sus-num {
+  font-family:'Share Tech Mono',monospace;
+  font-size:13px; color:var(--cyan);
+  text-align:center;
+}
+
+/* HV CARD */
+.hv-vals { display:flex; flex-direction:column; gap:5px; height:100%; }
+
+.hv-val-row {
+  display: flex; align-items:baseline; justify-content:space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 10px;
+  flex: 1;
+}
+
+.hv-val-lbl { font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+
+.hv-val-num-wrap { display:flex; align-items:baseline; gap:3px; }
+
+.hv-val-num {
+  font-family:'Orbitron',monospace;
+  font-size:20px; font-weight:700;
+  color:var(--gold2);
+}
+.hv-val-unit { font-size:11px; color:var(--gold3); letter-spacing:1px; }
+
+.hv-temp .hv-val-num { color: var(--amber); }
+
+/* ====== RIGHT COLUMN ====== */
+.right-col {
+  display: flex; flex-direction:column; gap:5px;
+}
+
+/* MOTOR CARD */
+.motor-vals { display:flex; flex-direction:column; gap:5px; }
+
+.mval-row {
+  display:flex; align-items:baseline; justify-content:space-between;
+  padding: 6px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.mval-lbl { font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+.mval-wrap { display:flex; align-items:baseline; gap:3px; }
+.mval-num { font-family:'Orbitron',monospace; font-size:22px; font-weight:700; color:var(--gold2); }
+.mval-unit { font-size:11px; color:var(--gold3); }
+
+/* GPS INFO CARD */
+.gps-vals { display:flex; flex-direction:column; gap:5px; flex:1; }
+
+.gps-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding: 5px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.gps-lbl { font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+.gps-val { font-family:'Share Tech Mono',monospace; font-size:13px; color:var(--cyan); }
+
+/* GPS fix indicator */
+.gps-header-row {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom: 6px;
+}
+
+.gps-fix {
+  display:flex; align-items:center; gap:5px;
+  font-size:10px; color:var(--text-dim);
+}
+.gps-fix-dot {
+  width:7px; height:7px; border-radius:50%;
+  background: var(--red);
+  transition: all 0.3s;
+}
+.gps-fix-dot.fix { background:var(--green); box-shadow:0 0 6px var(--green); }
+
+/* ====== BOTTOM BAR ====== */
+.bottombar {
+  display:flex; align-items:center; gap:10px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 14px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--text-dim);
+}
+
+.bottom-broker { color: var(--gold3); }
+.bottom-log { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--text-dim); }
+.bottom-clock { color: var(--gold); letter-spacing:1px; }
+
+/* ====== MODAL ====== */
+.modal-bg {
+  display:none; position:fixed; inset:0; z-index:2000;
+  background: rgba(6,11,24,0.88);
+  align-items:center; justify-content:center;
+}
+.modal-bg.open { display:flex; }
+
+.modal {
+  background: var(--bg1);
+  border: 1px solid var(--gold3);
+  border-radius: 6px;
+  padding: 24px 28px;
+  width: 440px;
+  box-shadow: 0 0 60px rgba(212,168,67,0.1);
+}
+
+.modal-hdr {
+  font-family:'Orbitron',monospace;
+  font-size:12px; font-weight:700;
+  letter-spacing:4px; color:var(--gold2);
+  margin-bottom:18px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+
+.fg { margin-bottom:13px; }
+
+.fg label {
+  display:block;
+  font-family:'Orbitron',monospace;
+  font-size:9px; letter-spacing:2px;
+  color:var(--text-dim);
+  margin-bottom:5px;
+}
+
+.fg input {
+  width:100%;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:3px;
+  padding:8px 12px;
+  color:var(--gold2);
+  font-family:'Share Tech Mono',monospace;
+  font-size:13px;
+  outline:none;
+  transition:border-color 0.2s;
+}
+.fg input:focus { border-color:var(--gold3); }
+.fg input::placeholder { color:var(--text-dim); opacity:0.5; }
+
+.fg-row { display:grid; grid-template-columns:1fr 90px; gap:8px; }
+.fg-row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+.fg-hint { font-size:10px; color:var(--text-dim); margin-top:3px; opacity:0.7; }
+
+.ssl-row {
+  display:flex; align-items:center; gap:8px;
+  cursor:pointer; user-select:none;
+}
+.ssl-box {
+  width:16px; height:16px;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:2px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; color:var(--gold2);
+  transition:all 0.2s;
+}
+.ssl-box.on { background:var(--gold3); border-color:var(--gold); }
+.ssl-label { font-family:'Orbitron',monospace; font-size:9px; color:var(--text-dim); letter-spacing:1px; }
+
+.modal-btns { display:flex; gap:8px; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+
+.btn {
+  flex:1; padding:9px 0;
+  font-family:'Orbitron',monospace;
+  font-size:10px; font-weight:700; letter-spacing:2px;
+  border:none; border-radius:3px; cursor:pointer;
+  transition:all 0.2s;
+}
+.btn-ok { background:var(--gold3); color:var(--gold2); border:1px solid var(--gold); }
+.btn-ok:hover { background:var(--gold); color:var(--bg0); }
+.btn-cancel { background:var(--bg2); color:var(--text-dim); border:1px solid var(--border); }
+.btn-cancel:hover { border-color:var(--gold3); color:var(--gold); }
+
+
+/* ====== SUSPENSION 4-WHEEL (bottom-left) ====== */
+.sus4-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 5px 8px;
+  height: 100%;
+}
+.sus4-col {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-height: 0; overflow: hidden;
+}
+.sus4-lbl {
+  font-family:'Orbitron',monospace;
+  font-size: 8px; letter-spacing:1px; color:var(--text-dim);
+  flex-shrink: 0;
+}
+.sus4-track {
+  flex: 1; width: 100%;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  position: relative; overflow: hidden;
+  min-height: 20px;
+}
+.sus4-fill {
+  position: absolute; bottom:0; left:0; right:0;
+  background: linear-gradient(0deg, var(--cyan2), var(--cyan));
+  height: 0%;
+  transition: height 0.15s ease;
+}
+.sus4-num {
+  font-family:'Share Tech Mono',monospace;
+  font-size: 11px; color:var(--cyan);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ====== RPM CARD EXTENDED ====== */
+.rpm-avg-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 6px;
+}
+.rpm-avg-label {
+  font-family:'Orbitron',monospace;
+  font-size: 8px; color:var(--text-dim); letter-spacing:1px;
+  white-space: nowrap;
+}
+.rpm-avg-num {
+  font-family:'Orbitron',monospace;
+  font-size: 20px; font-weight: 700; color:var(--gold);
+}
+.rpm-avg-unit {
+  font-family:'Orbitron',monospace;
+  font-size: 9px; color:var(--gold3); letter-spacing:1px;
+}
+
+/* ====== KWH BOX (same style as speed) ====== */
+.rpm-kwh-box {
+  display: flex; align-items: baseline; gap: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 4px 14px;
+}
+.rpm-kwh-num {
+  font-family:'Orbitron',monospace;
+  font-size: 28px; font-weight: 700; color:var(--amber);
+}
+.rpm-kwh-unit {
+  font-family:'Orbitron',monospace;
+  font-size: 11px; letter-spacing:2px; color:var(--text-dim);
+}
+
+/* ====== BAMO ERROR PANEL ====== */
+.bamo-card { flex: 0 0 auto; }
+
+.bamo-status {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 7px;
+  background: rgba(46,204,113,0.10);
+  border: 1px solid rgba(46,204,113,0.3);
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+.bamo-status.error {
+  background: rgba(231,76,60,0.10);
+  border-color: rgba(231,76,60,0.4);
+}
+.bamo-ok-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 5px var(--green);
+  flex-shrink: 0; transition: all 0.2s;
+}
+.bamo-status.error .bamo-ok-dot {
+  background: var(--red); box-shadow: 0 0 5px var(--red);
+  animation: pulse-red 0.8s step-end infinite;
+}
+.bamo-status-txt {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  color: var(--green); transition: color 0.2s;
+}
+.bamo-status.error .bamo-status-txt { color: var(--red); }
+
+/* 2-column container */
+.bamo-2col {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-top: 6px;
+  max-height: 130px; overflow-y: auto;
+}
+
+/* No-error state */
+.bamo-no-error {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px;
+}
+.bamo-code-big {
+  font-family: 'Orbitron', monospace;
+  font-size: 28px; font-weight: 900;
+  color: var(--green);
+  line-height: 1;
+  min-width: 36px; text-align: center;
+}
+.bamo-desc-txt {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px; color: var(--green); opacity: 0.7;
+}
+
+/* Each active error row */
+.bamo-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 4px 8px;
+  background: rgba(231,76,60,0.07);
+  border: 1px solid rgba(231,76,60,0.25);
+  border-left: 3px solid var(--red);
+  border-radius: 3px;
+}
+.bamo-row-code {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px; font-weight: 900;
+  color: var(--red);
+  line-height: 1;
+  text-align: center;
+  align-self: center;
+}
+.bamo-row-right {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.bamo-row-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px; font-weight: 700;
+  color: var(--red); letter-spacing: 1px;
+  line-height: 1.2;
+}
+.bamo-row-desc {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px; color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* Leaflet dark overrides */
+.leaflet-tile { filter: invert(1) hue-rotate(200deg) brightness(0.7) saturate(0.6); }
+.leaflet-container { background: var(--bg0); }
+</style>
+<!-- Leaflet Maps -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+</head>
+<body>
+<div class="root">
+
+  <!-- ====== TOPBAR ====== -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">EV</div>
+      <div class="brand-text">
+        <div class="t1">ARJUNA EV</div>
+        <div class="t2">GEN 14</div>
+      </div>
+    </div>
+
+    <div class="top-pills">
+      <div class="top-pill" id="pillRun">RUN</div>
+      <div class="top-pill" id="pillRfe">RFE</div>
+      <div class="top-pill" id="pillTrq">TRQ ZERO</div>
+      <div class="top-pill" id="pillFuseWarn" style="display:none;">⚠ FUSE FAULT</div>
+    </div>
+
+    <div class="top-spacer"></div>
+
+    <div class="conn-badge">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connText">DISCONNECTED</span>
+    </div>
+    <button class="cfg-btn" onclick="openModal()">⚙ CONFIG</button>
+  </div>
+
+  <!-- ====== CONTENT ====== -->
+  <div class="content">
+
+    <!-- === LEFT === -->
+    <div class="left-col">
+
+      <!-- PEDAL BARS -->
+      <div class="card pedal-section">
+        <div class="card-title">PEDAL INPUT</div>
+        <div class="pedal-row">
+          <div class="pedal-bar">
+            <div class="pedal-label" style="color:var(--gold)">APPS</div>
+            <div class="pedal-track">
+              <div class="pedal-fill apps" id="appsBar"></div>
+            </div>
+            <div class="pedal-num" id="appsNum">0</div>
+          </div>
+          <div class="pedal-bar">
+            <div class="pedal-label" style="color:#c040ff">BSE</div>
+            <div class="pedal-track">
+              <div class="pedal-fill bse" id="bseBar"></div>
+            </div>
+            <div class="pedal-num" id="bseNum">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FUSE STATUS -->
+      <div class="card fuse-section">
+        <div class="card-title">FUSE STATUS</div>
+        <div class="fuse-grid">
+          <div class="fuse-item" id="fvcu">
+            <div class="fuse-dot"></div><div class="fuse-name">VCU</div>
+          </div>
+          <div class="fuse-item" id="fbspd">
+            <div class="fuse-dot"></div><div class="fuse-name">BSPD</div>
+          </div>
+          <div class="fuse-item" id="ftsmb">
+            <div class="fuse-dot"></div><div class="fuse-name">TSMB</div>
+          </div>
+          <div class="fuse-item" id="fimd">
+            <div class="fuse-dot"></div><div class="fuse-name">IMD</div>
+          </div>
+          <div class="fuse-item" id="faccint">
+            <div class="fuse-dot"></div><div class="fuse-name">ACCINT</div>
+          </div>
+          <div class="fuse-item" id="frsm">
+            <div class="fuse-dot"></div><div class="fuse-name">RSM</div>
+          </div>
+          <div class="fuse-item" id="fem">
+            <div class="fuse-dot"></div><div class="fuse-name">EM</div>
+          </div>
+          <div class="fuse-item" id="fmc">
+            <div class="fuse-dot"></div><div class="fuse-name">MC</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LV BATTERY -->
+      <div class="card lv-section">
+        <div class="card-title">LV BATTERY</div>
+        <div class="lv-vals">
+          <div class="lv-val-box">
+            <span class="lv-val-num" id="lvV">0</span>
+            <span class="lv-val-unit">VOLT</span>
+          </div>
+          <div class="lv-val-box">
+            <span class="lv-val-num" id="lvA">0</span>
+            <span class="lv-val-unit">AMP</span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- SUSPENSION 4-WHEEL (pojok kiri bawah) -->
+      <div class="card" style="flex:1; min-height:160px; overflow:hidden;">
+        <div class="card-title">SUSPENSION TRAVEL</div>
+        <div class="sus4-grid" style="height:calc(100% - 28px);">
+          <div class="sus4-col">
+            <div class="sus4-lbl">FL</div>
+            <div class="sus4-track"><div class="sus4-fill" id="susFL"></div></div>
+            <div class="sus4-num" id="susFLn">0</div>
+          </div>
+          <div class="sus4-col">
+            <div class="sus4-lbl">FR</div>
+            <div class="sus4-track"><div class="sus4-fill" id="susFR"></div></div>
+            <div class="sus4-num" id="susFRn">0</div>
+          </div>
+          <div class="sus4-col">
+            <div class="sus4-lbl">RL</div>
+            <div class="sus4-track"><div class="sus4-fill" id="susRL"></div></div>
+            <div class="sus4-num" id="susRLn">0</div>
+          </div>
+          <div class="sus4-col">
+            <div class="sus4-lbl">RR</div>
+            <div class="sus4-track"><div class="sus4-fill" id="susRR"></div></div>
+            <div class="sus4-num" id="susRRn">0</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /left-col -->
+
+    <!-- === CENTER === -->
+    <div class="center-col">
+
+      <div class="center-top">
+
+        <!-- RPM -->
+        <div class="card rpm-card">
+          <!-- RPM UTAMA (sensor.rpm) -->
+          <div class="rpm-label">RPM UTAMA</div>
+          <div class="rpm-big" id="rpmBig">0</div>
+          <div class="rpm-unit">REV / MIN</div>
+
+          <!-- slider utama -->
+          <div class="rpm-slider-wrap">
+            <div class="rpm-slider-track">
+              <div class="rpm-slider-fill" id="rpmSlider"></div>
+            </div>
+            <div class="rpm-slider-ticks">
+              <span>0</span><span>1500</span><span>3000</span><span>4500</span><span>6000</span>
+            </div>
+          </div>
+
+          <!-- RPM AVG (RL+RR)/2 -->
+          <div class="rpm-avg-row">
+            <div class="rpm-avg-label">AVG WHEEL</div>
+            <div class="rpm-avg-num" id="rpmAvgNum">0</div>
+            <div class="rpm-avg-unit">RPM</div>
+            <div style="flex:1"></div>
+            <!-- slider avg -->
+            <div style="flex:2; height:6px; background:var(--bg0); border:1px solid var(--border); border-radius:3px; overflow:hidden; position:relative;">
+              <div id="rpmAvgSlider" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold3),var(--gold));transition:width 0.12s ease;border-radius:3px;"></div>
+            </div>
+          </div>
+
+          <!-- KM/H + KWH -->
+          <div class="rpm-speed-row">
+            <div class="rpm-speed-box">
+              <div class="rpm-speed-num" id="rpmSpeed">0</div>
+              <div class="rpm-speed-unit">KM/H</div>
+            </div>
+            <div class="rpm-kwh-box">
+              <div class="rpm-kwh-num" id="rpmKwh">0.0</div>
+              <div class="rpm-kwh-unit">KWH</div>
+            </div>
+          </div>
+
+          <!-- RL / RR kecil -->
+          <div class="rpm-sub">
+            <div class="rpm-sub-item">
+              <span id="rpmRL">0</span>
+              <small>RL</small>
+            </div>
+            <div class="rpm-sub-item">
+              <span id="rpmRR">0</span>
+              <small>RR</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAP -->
+        <div class="card map-card">
+          <div id="map"></div>
+          <div class="map-overlay" id="gpsCoordOverlay">GPS: waiting...</div>
+        </div>
+
+      </div><!-- /center-top -->
+
+      <!-- CENTER BOTTOM -->
+      <div class="center-bottom">
+
+        <!-- IMU -->
+        <div class="card">
+          <div class="card-title">IMU — ATTITUDE</div>
+          <div class="imu-horizon" id="imuHorizon">
+            <div class="horizon-sky"></div>
+            <div class="horizon-line" id="horizonLine"></div>
+            <div class="horizon-center"></div>
+          </div>
+          <div class="imu-values">
+            <div class="imu-val">
+              <span class="imu-val-num" id="imuRoll">0.0</span>
+              <span class="imu-val-lbl">ROLL°</span>
+            </div>
+            <div class="imu-val">
+              <span class="imu-val-num" id="imuPitch">0.0</span>
+              <span class="imu-val-lbl">PITCH°</span>
+            </div>
+            <div class="imu-val">
+              <span class="imu-val-num" id="imuYaw">0.0</span>
+              <span class="imu-val-lbl">YAW°</span>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- HV BATTERY -->
+        <div class="card">
+          <div class="card-title">HV BATTERY</div>
+          <div class="hv-vals">
+            <div class="hv-val-row">
+              <span class="hv-val-lbl">VOLTAGE</span>
+              <div class="hv-val-num-wrap">
+                <span class="hv-val-num" id="hvV">0</span>
+                <span class="hv-val-unit">V</span>
+              </div>
+            </div>
+            <div class="hv-val-row">
+              <span class="hv-val-lbl">CURRENT</span>
+              <div class="hv-val-num-wrap">
+                <span class="hv-val-num" id="hvA">0</span>
+                <span class="hv-val-unit">A</span>
+              </div>
+            </div>
+            <div class="hv-val-row hv-temp">
+              <span class="hv-val-lbl">TEMP</span>
+              <div class="hv-val-num-wrap">
+                <span class="hv-val-num" id="hvT">0</span>
+                <span class="hv-val-unit">°C</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /center-bottom -->
+
+    </div><!-- /center-col -->
+
+    <!-- === RIGHT === -->
+    <div class="right-col">
+
+      <!-- MOTOR -->
+      <div class="card">
+        <div class="card-title">MOTOR</div>
+        <div class="motor-vals">
+          <div class="mval-row">
+            <span class="mval-lbl">VOLTAGE</span>
+            <div class="mval-wrap"><span class="mval-num" id="mV">0</span><span class="mval-unit">V</span></div>
+          </div>
+          <div class="mval-row">
+            <span class="mval-lbl">CURRENT</span>
+            <div class="mval-wrap"><span class="mval-num" id="mA">0</span><span class="mval-unit">A</span></div>
+          </div>
+          <div class="mval-row">
+            <span class="mval-lbl">TEMP MTR</span>
+            <div class="mval-wrap"><span class="mval-num" style="color:var(--amber)" id="mTmtr">0</span><span class="mval-unit">°C</span></div>
+          </div>
+          <div class="mval-row">
+            <span class="mval-lbl">TEMP IGBT</span>
+            <div class="mval-wrap"><span class="mval-num" style="color:var(--amber)" id="mTigbt">0</span><span class="mval-unit">°C</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GPS INFO -->
+      <div class="card" style="flex:1;">
+        <div class="card-title">
+          <div class="gps-header-row">
+            <span>GPS</span>
+            <div class="gps-fix">
+              <div class="gps-fix-dot" id="gpsDot"></div>
+              <span id="gpsFix">NO FIX</span>
+            </div>
+          </div>
+        </div>
+        <div class="gps-vals">
+          <div class="gps-row">
+            <span class="gps-lbl">LATITUDE</span>
+            <span class="gps-val" id="gpsLat">—</span>
+          </div>
+          <div class="gps-row">
+            <span class="gps-lbl">LONGITUDE</span>
+            <span class="gps-val" id="gpsLng">—</span>
+          </div>
+          <div class="gps-row">
+            <span class="gps-lbl">SPEED</span>
+            <span class="gps-val" id="gpsSpeed">— km/h</span>
+          </div>
+          <div class="gps-row">
+            <span class="gps-lbl">HEADING</span>
+            <span class="gps-val" id="gpsHeading">—°</span>
+          </div>
+          <div class="gps-row">
+            <span class="gps-lbl">ALTITUDE</span>
+            <span class="gps-val" id="gpsAlt">— m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BAMO ERROR — 2 kolom: kode besar | deskripsi -->
+      <div class="card bamo-card">
+        <div class="card-title">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span>BAMO ERROR</span>
+            <div class="bamo-status" id="bamoStatus">
+              <div class="bamo-ok-dot" id="bamoDot"></div>
+              <span class="bamo-status-txt" id="bamoStatusTxt">NO ERROR</span>
+            </div>
+          </div>
+        </div>
+        <div class="bamo-2col" id="bamoErrorList">
+          <div class="bamo-no-error">
+            <span class="bamo-code-big">0</span>
+            <span class="bamo-desc-txt">System normal</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /right-col -->
+
+  </div><!-- /content -->
+
+  <!-- ====== BOTTOMBAR ====== -->
+  <div class="bottombar">
+    <span>MQTT:</span>
+    <span class="bottom-broker" id="brokerLabel">—</span>
+    <span>|</span>
+    <span class="bottom-log" id="logLine">Menunggu koneksi...</span>
+    <span class="bottom-clock" id="clock">--:--:--</span>
+  </div>
+
+</div><!-- /root -->
+
+<!-- ====== MODAL CONFIG ====== -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-hdr">⚙ MQTT CONFIGURATION</div>
+
+    <div class="fg">
+      <label>BROKER HOST</label>
+      <input id="cfgBroker" type="text" placeholder="broker.hivemq.com" value="broker.hivemq.com">
+    </div>
+
+    <div class="fg">
+      <label>PORT &amp; SSL</label>
+      <div class="fg-row">
+        <input id="cfgPort" type="number" placeholder="8884" value="8884">
+        <div class="ssl-row" onclick="toggleSSL()">
+          <div class="ssl-box on" id="sslBox">✓</div>
+          <span class="ssl-label">USE SSL</span>
+        </div>
+      </div>
+      <div class="fg-hint">SSL → port 8884 &nbsp;|&nbsp; Non-SSL → port 1883 / 8083</div>
+    </div>
+
+    <div class="fg">
+      <label>TOPIC SUBSCRIBE</label>
+      <input id="cfgTopic" type="text" placeholder="arjuna/data" value="arjuna/data">
+    </div>
+
+    <div class="fg">
+      <label>CLIENT ID <span style="opacity:.4">(kosongkan = auto)</span></label>
+      <input id="cfgClientId" type="text" placeholder="auto">
+    </div>
+
+    <div class="fg" style="margin-bottom:0">
+      <label>CREDENTIALS <span style="opacity:.4">(opsional)</span></label>
+      <div class="fg-row2">
+        <input id="cfgUser" type="text" placeholder="username">
+        <input id="cfgPass" type="password" placeholder="password">
+      </div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeModal()">CANCEL</button>
+      <button class="btn btn-ok" onclick="applyConfig()">CONNECT</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==============================
+//  CONFIG & STATE
+// ==============================
+let cfg = {
+  broker: 'broker.hivemq.com', port: 8884,
+  topic: 'arjuna/data',
+  clientId: 'arjuna_dash_' + Math.floor(Math.random()*9000+1000),
+  useSSL: true, user: '', pass: ''
+};
+
+let d = {
+  apps:0, bse:0,
+  rpm:0, rpm_rl:0, rpm_rr:0,
+  sus_travel_fl:0, sus_travel_fr:0, sus_travel_rl:0, sus_travel_rr:0,
+  lv_current:0, lv_voltage:0,
+  hv_current:0, hv_voltage:0, hv_temp:0,
+  v_motor:0, i_motor:0, suhu_motor:0, suhu_igbt:0,
+  error_bamo:0, kwh:0,
+  roll:0, pitch:0, yaw:0,
+  lat:null, lng:null, speed:0, heading:0, altitude:0,
+  fuse:0xFF, statusbit:0
+};
+
+// BAMO error table (bit 0–15)
+const BAMO_ERRORS = [
+  {bit:0,  code:'0', name:'Eprom Read Error',        desc:'Reading from Eprom defective'},
+  {bit:1,  code:'1', name:'HW Fault Detected',       desc:'Critical hardware error detected'},
+  {bit:2,  code:'2', name:'RFE Input Not Present',   desc:'Safety circuit not present (with RUN input active)'},
+  {bit:3,  code:'3', name:'CAN Timeout Error',       desc:'CAN TimeOut Time exceeded'},
+  {bit:4,  code:'4', name:'Feedback Signal Error',   desc:'Bad or missing feedback signal'},
+  {bit:5,  code:'5', name:'Mains Voltage Min Limit', desc:'Power voltage missing or below DC-Bus min limit'},
+  {bit:6,  code:'6', name:'Motor Temp Max Limit',    desc:'Motor temperature too high'},
+  {bit:7,  code:'7', name:'IGBT Temp Max Limit',     desc:'Output stage temperature too high'},
+  {bit:8,  code:'8', name:'Mains Voltage Max Limit', desc:'Power voltage > 1.8x UN or above DC-Bus max limit'},
+  {bit:9,  code:'9', name:'Critical AC Current',     desc:'Overcurrent or strong oscillating current detected'},
+  {bit:10, code:'A', name:'Race Away Detected',      desc:'Spinning without setpoint, wrong direction'},
+  {bit:11, code:'B', name:'ECode Timeout Error',     desc:'Bad or missing ECode protocol'},
+  {bit:12, code:'C', name:'Watchdog Reset',          desc:'CPU Reset because of Watchdog detected'},
+  {bit:13, code:'D', name:'I Offset Problem',        desc:'AC Current Offset detection fault'},
+  {bit:14, code:'E', name:'Internal HV Voltage',     desc:'Error because of internal Voltage problem'},
+  {bit:15, code:'F', name:'Bleed Resistor Overload', desc:'Only certain motor controllers'},
+];
+
+// ==============================
+//  MAP INIT
+// ==============================
+const map = L.map('map', { zoomControl:false, attributionControl:false })
+             .setView([-7.7956, 110.3695], 16);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+const markerIcon = L.divIcon({
+  html: '<div style="width:14px;height:14px;background:var(--gold);border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px rgba(212,168,67,0.8)"></div>',
+  iconAnchor:[7,7], iconSize:[14,14], className:''
+});
+
+let marker = null;
+let trackLine = L.polyline([], { color:'#d4a843', weight:2, opacity:0.6 }).addTo(map);
+let trackPoints = [];
+
+function updateMap(lat, lng) {
+  if (!marker) {
+    marker = L.marker([lat,lng], {icon:markerIcon}).addTo(map);
+  } else {
+    marker.setLatLng([lat,lng]);
+  }
+  trackPoints.push([lat,lng]);
+  if (trackPoints.length > 300) trackPoints.shift();
+  trackLine.setLatLngs(trackPoints);
+  map.panTo([lat,lng]);
+
+  document.getElementById('gpsCoordOverlay').textContent =
+    lat.toFixed(6) + ', ' + lng.toFixed(6);
+  document.getElementById('gpsDot').classList.add('fix');
+  document.getElementById('gpsFix').textContent = 'FIX';
+}
+
+// ==============================
+//  UI UPDATE
+// ==============================
+function updateUI() {
+  const RPM_MAX = 6000;
+
+  // Pedals
+  el('appsNum').textContent  = d.apps;
+  el('bseNum').textContent   = d.bse;
+  el('appsBar').style.height = clamp(d.apps,0,100) + '%';
+  el('bseBar').style.height  = clamp(d.bse,0,100) + '%';
+
+  // RPM utama (sensor.rpm)
+  const rpmMain = parseInt(d.rpm) || 0;
+  el('rpmBig').textContent    = rpmMain;
+  el('rpmSlider').style.width = clamp(rpmMain/RPM_MAX*100,0,100) + '%';
+
+  // RPM avg roda
+  const rpmAvg = Math.round(((parseInt(d.rpm_rl)||0) + (parseInt(d.rpm_rr)||0)) / 2);
+  el('rpmAvgNum').textContent = rpmAvg;
+  el('rpmAvgSlider').style.width = clamp(rpmAvg/RPM_MAX*100,0,100) + '%';
+
+  // RPM RL / RR kecil
+  el('rpmRL').textContent = d.rpm_rl;
+  el('rpmRR').textContent = d.rpm_rr;
+
+  // Speed & KWH
+  const spd = Math.round(parseFloat(d.speed)||0);
+  el('rpmSpeed').textContent = spd;
+  el('rpmKwh').textContent   = (parseFloat(d.kwh)||0).toFixed(2);
+
+  // Suspension 4-wheel
+  el('susFL').style.height = clamp(d.sus_travel_fl,0,100) + '%';
+  el('susFR').style.height = clamp(d.sus_travel_fr,0,100) + '%';
+  el('susRL').style.height = clamp(d.sus_travel_rl,0,100) + '%';
+  el('susRR').style.height = clamp(d.sus_travel_rr,0,100) + '%';
+  el('susFLn').textContent = d.sus_travel_fl;
+  el('susFRn').textContent = d.sus_travel_fr;
+  el('susRLn').textContent = d.sus_travel_rl;
+  el('susRRn').textContent = d.sus_travel_rr;
+
+  // LV
+  el('lvV').textContent = d.lv_voltage;
+  el('lvA').textContent = d.lv_current;
+
+  // HV
+  el('hvV').textContent = d.hv_voltage;
+  el('hvA').textContent = d.hv_current;
+  el('hvT').textContent = d.hv_temp;
+
+  // Motor — real fields
+  el('mV').textContent     = d.v_motor;
+  el('mA').textContent     = d.i_motor;
+  el('mTmtr').textContent  = d.suhu_motor;
+  el('mTigbt').textContent = d.suhu_igbt;
+
+  // IMU
+  const roll  = parseFloat(d.roll)  || 0;
+  const pitch = parseFloat(d.pitch) || 0;
+  const yaw   = parseFloat(d.yaw)   || 0;
+  el('imuRoll').textContent  = roll.toFixed(1);
+  el('imuPitch').textContent = pitch.toFixed(1);
+  el('imuYaw').textContent   = yaw.toFixed(1);
+
+  // Artificial horizon
+  const pitchOffset = clamp(pitch, -20, 20) / 20 * 45;
+  const rollDeg     = clamp(roll,  -60, 60);
+  el('horizonLine').style.transform = `translateY(${pitchOffset}%) rotate(${rollDeg}deg)`;
+
+  // GPS
+  const lat = parseFloat(d.lat);
+  const lng = parseFloat(d.lng);
+  if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+    updateMap(lat, lng);
+    el('gpsLat').textContent     = lat.toFixed(6);
+    el('gpsLng').textContent     = lng.toFixed(6);
+    el('gpsSpeed').textContent   = (parseFloat(d.speed)||0).toFixed(1) + ' km/h';
+    el('gpsHeading').textContent = (parseFloat(d.heading)||0).toFixed(1) + '°';
+    el('gpsAlt').textContent     = (parseFloat(d.altitude)||0).toFixed(1) + ' m';
+  }
+
+  // Status pills (statusbit — hanya display, tidak trigger warning)
+  const run  = (d.statusbit >> 0) & 1;
+  const rfe  = (d.statusbit >> 1) & 1;
+  const trq0 = (d.statusbit >> 2) & 1;
+  setPill('pillRun', run,  'on');
+  setPill('pillRfe', rfe,  'on');
+  setPill('pillTrq', trq0, 'on');
+
+  // Fuse — bit 0=MC, 1=EM, 2=RSM, 3=ACCINT, 4=IMD, 5=TSMB, 6=BSPD, 7=VCU
+  const fuseBits = [
+    {id:'fmc',     bit:(d.fuse>>0)&1},
+    {id:'fem',     bit:(d.fuse>>1)&1},
+    {id:'frsm',    bit:(d.fuse>>2)&1},
+    {id:'faccint', bit:(d.fuse>>3)&1},
+    {id:'fimd',    bit:(d.fuse>>4)&1},
+    {id:'ftsmb',   bit:(d.fuse>>5)&1},
+    {id:'fbspd',   bit:(d.fuse>>6)&1},
+    {id:'fvcu',    bit:(d.fuse>>7)&1},
+  ];
+
+  let anyFuseFault = false;
+  const faultNames = [];
+  fuseBits.forEach(({id, bit}) => {
+    setFuse(id, bit);
+    if (!bit) {
+      anyFuseFault = true;
+      faultNames.push(el(id).querySelector('.fuse-name').textContent);
+    }
+  });
+
+  // Fuse warning pill — ONLY fuse triggers warning
+  const fw = el('pillFuseWarn');
+  fw.style.display = anyFuseFault ? '' : 'none';
+  if (anyFuseFault) {
+    fw.className = 'top-pill warn';
+    fw.textContent = '\u26A0 FUSE: ' + faultNames.join(', ');
+  }
+
+  // BAMO error decode (16-bit)
+  const bamo = parseInt(d.error_bamo) || 0;
+  const activeErrors = BAMO_ERRORS.filter(e => (bamo >> e.bit) & 1);
+  const bamoSt  = el('bamoStatus');
+  const bamoTxt = el('bamoStatusTxt');
+  const bamoList = el('bamoErrorList');
+
+  if (activeErrors.length === 0) {
+    bamoSt.className    = 'bamo-status';
+    bamoTxt.textContent = 'NO ERROR';
+    bamoList.innerHTML  = '<div class="bamo-no-error"><span class="bamo-code-big">0</span><span class="bamo-desc-txt">System normal</span></div>';
+  } else {
+    bamoSt.className    = 'bamo-status error';
+    bamoTxt.textContent = activeErrors.length + ' ERROR' + (activeErrors.length > 1 ? 'S' : '') + ' ACTIVE';
+    bamoList.innerHTML  = activeErrors.map(e =>
+      `<div class="bamo-row">
+        <div class="bamo-row-code">${e.code}</div>
+        <div class="bamo-row-right">
+          <div class="bamo-row-name">${e.name}</div>
+          <div class="bamo-row-desc">${e.desc}</div>
+        </div>
+      </div>`
+    ).join('');
+  }
+}
+
+function el(id) { return document.getElementById(id); }
+function clamp(v,mn,mx) { return Math.max(mn, Math.min(mx, v)); }
+
+function setPill(id, active, cls) {
+  const e = el(id);
+  e.className = 'top-pill' + (active ? ' '+cls : '');
+}
+
+function setFuse(id, bit) {
+  const e = el(id);
+  e.className = 'fuse-item ' + (bit ? 'ok' : 'fault');
+}
+
+// ==============================
+//  MQTT
+// ==============================
+let mqttClient, autoRetry = true;
+
+function mqttConnect() {
+  autoRetry = true;
+  const {broker,port,topic,clientId,useSSL,user,pass} = cfg;
+
+  el('brokerLabel').textContent = broker + ':' + port;
+  setLog('Menghubungkan ke ' + broker + ':' + port + (useSSL?' [SSL]':'') + '...');
+
+  mqttClient = new Paho.Client(broker, port, '/mqtt', clientId);
+
+  mqttClient.onConnectionLost = (r) => {
+    setConn(false);
+    if (r.errorCode !== 0) {
+      setLog('Terputus: ' + r.errorMessage + ' — retry 5 detik...');
+      if (autoRetry) setTimeout(mqttConnect, 5000);
+    }
+  };
+
+  mqttClient.onMessageArrived = (msg) => {
+    try {
+      const p = JSON.parse(msg.payloadString);
+      Object.assign(d, p);
+      updateUI();
+      setLog('[' + new Date().toLocaleTimeString() + '] ' + msg.payloadString.substring(0,100));
+    } catch(e) {
+      setLog('Parse error: ' + e.message);
+    }
+  };
+
+  const opts = {
+    useSSL, timeout:10, keepAliveInterval:60,
+    onSuccess: () => {
+      setConn(true);
+      setLog('Terhubung. Topic: ' + topic);
+      mqttClient.subscribe(topic);
+    },
+    onFailure: (e) => {
+      setConn(false);
+      setLog('Gagal: ' + e.errorMessage + ' — retry 5 detik...');
+      if (autoRetry) setTimeout(mqttConnect, 5000);
+    }
+  };
+  if (user) { opts.userName = user; opts.password = pass; }
+  mqttClient.connect(opts);
+}
+
+function mqttDisconnect() {
+  autoRetry = false;
+  if (mqttClient && mqttClient.isConnected()) {
+    try { mqttClient.disconnect(); } catch(e){}
+  }
+  setConn(false);
+}
+
+function setConn(ok) {
+  el('connDot').className = 'conn-dot ' + (ok ? 'on' : 'err');
+  el('connText').textContent = ok ? 'CONNECTED' : 'DISCONNECTED';
+}
+
+function setLog(msg) { el('logLine').textContent = msg; }
+
+// ==============================
+//  MODAL
+// ==============================
+let sslOn = true;
+
+function openModal() {
+  el('cfgBroker').value   = cfg.broker;
+  el('cfgPort').value     = cfg.port;
+  el('cfgTopic').value    = cfg.topic;
+  el('cfgClientId').value = '';
+  el('cfgUser').value     = cfg.user||'';
+  el('cfgPass').value     = cfg.pass||'';
+  sslOn = cfg.useSSL;
+  updateSSLBox();
+  el('modalBg').classList.add('open');
+}
+
+function closeModal() { el('modalBg').classList.remove('open'); }
+
+function toggleSSL() {
+  sslOn = !sslOn;
+  updateSSLBox();
+  const p = el('cfgPort');
+  if (sslOn  && p.value === '1883') p.value = '8884';
+  if (!sslOn && p.value === '8884') p.value = '1883';
+}
+
+function updateSSLBox() {
+  const b = el('sslBox');
+  b.classList.toggle('on', sslOn);
+  b.textContent = sslOn ? '✓' : '';
+}
+
+function applyConfig() {
+  const broker   = el('cfgBroker').value.trim() || 'broker.hivemq.com';
+  const port     = parseInt(el('cfgPort').value) || 8884;
+  const topic    = el('cfgTopic').value.trim()   || 'arjuna/data';
+  const clientId = el('cfgClientId').value.trim()
+                   || 'arjuna_dash_' + Math.floor(Math.random()*9000+1000);
+  const user     = el('cfgUser').value.trim();
+  const pass     = el('cfgPass').value;
+
+  cfg = {broker, port, topic, clientId, useSSL:sslOn, user, pass};
+  closeModal();
+  mqttDisconnect();
+  setTimeout(mqttConnect, 400);
+}
+
+el('modalBg').addEventListener('click', (e) => {
+  if (e.target === el('modalBg')) closeModal();
+});
+
+// ==============================
+//  CLOCK
+// ==============================
+setInterval(() => {
+  el('clock').textContent = new Date().toTimeString().substring(0,8);
+}, 1000);
+
+// ==============================
+//  START — langsung buka modal
+// ==============================
+openModal();
+</script>
+</body>
+</html>
