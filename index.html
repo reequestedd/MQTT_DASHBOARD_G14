@@ -944,7 +944,6 @@ body::before {
   grid-column: 1 / -1;
   overflow-y: auto;
   padding: 4px 0;
-  height: 100%;
 }
 .charts-page.active { display: block; }
 
@@ -1003,7 +1002,6 @@ body::before {
   cursor: pointer; transition: all 0.15s;
 }
 .span-btn.on { background: var(--gold3); border-color: var(--gold); color: var(--gold2); }
-.cg-unit { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--gold3); }
 
 </style>
 <!-- Leaflet Maps -->
@@ -1336,25 +1334,6 @@ body::before {
         </div>
       </div>
 
-      <!-- STEERING ANGLE -->
-      <div class="card" style="flex:0 0 auto;">
-        <div class="card-title">STEERING ANGLE</div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 0;">
-          <div style="font-family:'Orbitron',monospace;font-size:32px;font-weight:900;color:var(--cyan);line-height:1;" id="steeringVal">0.0</div>
-          <div style="display:flex;flex-direction:column;gap:2px;">
-            <span style="font-family:'Orbitron',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px;">DEG</span>
-            <div style="display:flex;gap:4px;align-items:center;">
-              <span style="font-size:9px;color:var(--text-dim);">L</span>
-              <div style="width:80px;height:6px;background:var(--bg0);border:1px solid var(--border);border-radius:3px;overflow:hidden;position:relative;">
-                <div id="steeringBar" style="position:absolute;height:100%;width:50%;background:var(--cyan);left:0;transition:width 0.1s ease,left 0.1s ease;border-radius:3px;"></div>
-                <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2);"></div>
-              </div>
-              <span style="font-size:9px;color:var(--text-dim);">R</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- BAMO ERROR — 2 kolom: kode besar | deskripsi -->
       <div class="card bamo-card">
         <div class="card-title">
@@ -1398,106 +1377,60 @@ body::before {
 
     <div class="chart-grid">
 
-      <!-- 1 APPS & BSE -->
+      <!-- PEDAL -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>APPS &amp; BSE</span><span class="cg-unit">%</span></div>
+        <div class="chart-group-title">
+          <span>PEDAL INPUT</span>
+        </div>
         <div class="chart-wrap"><canvas id="cApps"></canvas></div>
       </div>
 
-      <!-- 2 LV VOLTAGE -->
+      <!-- RPM -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>LV VOLTAGE</span><span class="cg-unit">V</span></div>
-        <div class="chart-wrap"><canvas id="cLvV"></canvas></div>
+        <div class="chart-group-title"><span>RPM</span></div>
+        <div class="chart-wrap"><canvas id="cRpm"></canvas></div>
       </div>
 
-      <!-- 3 LV CURRENT -->
+      <!-- SPEED -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>LV CURRENT</span><span class="cg-unit">A</span></div>
-        <div class="chart-wrap"><canvas id="cLvA"></canvas></div>
-      </div>
-
-      <!-- 4 SUS FRONT -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>SUSPENSION FL / FR</span><span class="cg-unit">%</span></div>
-        <div class="chart-wrap"><canvas id="cSusFront"></canvas></div>
-      </div>
-
-      <!-- 5 SUS REAR -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>SUSPENSION RL / RR</span><span class="cg-unit">%</span></div>
-        <div class="chart-wrap"><canvas id="cSusRear"></canvas></div>
-      </div>
-
-      <!-- 6 LATITUDE -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>GPS LATITUDE</span><span class="cg-unit">°</span></div>
-        <div class="chart-wrap"><canvas id="cLat"></canvas></div>
-      </div>
-
-      <!-- 7 LONGITUDE -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>GPS LONGITUDE</span><span class="cg-unit">°</span></div>
-        <div class="chart-wrap"><canvas id="cLng"></canvas></div>
-      </div>
-
-      <!-- 8 RPM UTAMA -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>RPM UTAMA</span><span class="cg-unit">rpm</span></div>
-        <div class="chart-wrap"><canvas id="cRpmMain"></canvas></div>
-      </div>
-
-      <!-- 9 RPM WHEEL -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>RPM RL / RR</span><span class="cg-unit">rpm</span></div>
-        <div class="chart-wrap"><canvas id="cRpmWheel"></canvas></div>
-      </div>
-
-      <!-- 10 SPEED -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>SPEED</span><span class="cg-unit">km/h</span></div>
+        <div class="chart-group-title"><span>SPEED &amp; KWH</span></div>
         <div class="chart-wrap"><canvas id="cSpeed"></canvas></div>
       </div>
 
-      <!-- 11 KWH -->
+      <!-- IMU ATTITUDE -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>ENERGY</span><span class="cg-unit">kWh</span></div>
-        <div class="chart-wrap"><canvas id="cKwh"></canvas></div>
+        <div class="chart-group-title"><span>IMU — ROLL / PITCH / YAW</span></div>
+        <div class="chart-wrap"><canvas id="cImu"></canvas></div>
       </div>
 
-      <!-- 12 HV VOLTAGE -->
+      <!-- SUSPENSION -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>HV VOLTAGE</span><span class="cg-unit">V</span></div>
-        <div class="chart-wrap"><canvas id="cHvV"></canvas></div>
+        <div class="chart-group-title"><span>SUSPENSION TRAVEL</span></div>
+        <div class="chart-wrap"><canvas id="cSus"></canvas></div>
       </div>
 
-      <!-- 13 HV CURRENT -->
+      <!-- LV BATTERY -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>HV CURRENT</span><span class="cg-unit">A</span></div>
-        <div class="chart-wrap"><canvas id="cHvA"></canvas></div>
+        <div class="chart-group-title"><span>LV BATTERY</span></div>
+        <div class="chart-wrap"><canvas id="cLv"></canvas></div>
       </div>
 
-      <!-- 14 HV TEMP -->
+      <!-- HV BATTERY -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>HV TEMPERATURE</span><span class="cg-unit">°C</span></div>
-        <div class="chart-wrap"><canvas id="cHvT"></canvas></div>
+        <div class="chart-group-title"><span>HV BATTERY</span></div>
+        <div class="chart-wrap"><canvas id="cHv"></canvas></div>
       </div>
 
-      <!-- 15 MOTOR VOLTAGE -->
+      <!-- MOTOR -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>MOTOR VOLTAGE</span><span class="cg-unit">V</span></div>
-        <div class="chart-wrap"><canvas id="cMtrV"></canvas></div>
+        <div class="chart-group-title"><span>MOTOR</span></div>
+        <div class="chart-wrap"><canvas id="cMotor"></canvas></div>
       </div>
 
-      <!-- 16 MOTOR CURRENT -->
+      <!-- MOTOR TEMP -->
       <div class="chart-group">
-        <div class="chart-group-title"><span>MOTOR CURRENT</span><span class="cg-unit">A</span></div>
-        <div class="chart-wrap"><canvas id="cMtrA"></canvas></div>
-      </div>
-
-      <!-- 17 MOTOR TEMP -->
-      <div class="chart-group">
-        <div class="chart-group-title"><span>MOTOR TEMP</span><span class="cg-unit">°C</span></div>
-        <div class="chart-wrap"><canvas id="cMtrT"></canvas></div>
+        <div class="chart-group-title"><span>TEMPERATURE</span></div>
+        <div class="chart-wrap"><canvas id="cTemp"></canvas></div>
       </div>
 
     </div><!-- /chart-grid -->
@@ -1583,8 +1516,7 @@ let d = {
   error_bamo:0, kwh:0,
   roll:0, pitch:0, yaw:0,
   lat:null, lng:null, speed:0, heading:0, altitude:0,
-  fuse:0xFF, statusbit:0,
-  steering_angle:0
+  fuse:0xFF, statusbit:0
 };
 
 // BAMO error table (bit 0–15)
@@ -1761,22 +1693,6 @@ function updateUI() {
     fw.textContent = '\u26A0 FUSE: ' + faultNames.join(', ');
   }
 
-  // Steering Angle
-  const steer = parseFloat(d.steering_angle) || 0;
-  el('steeringVal').textContent = steer.toFixed(1);
-  // Bar: center=50%, left turn negative, right positive, range ±90
-  const steerPct = clamp((steer + 90) / 180 * 100, 0, 100);
-  const mid = 50;
-  if (steerPct >= mid) {
-    el('steeringBar').style.left  = mid + '%';
-    el('steeringBar').style.width = (steerPct - mid) + '%';
-    el('steeringBar').style.background = 'var(--gold)';
-  } else {
-    el('steeringBar').style.left  = steerPct + '%';
-    el('steeringBar').style.width = (mid - steerPct) + '%';
-    el('steeringBar').style.background = 'var(--cyan)';
-  }
-
   // BAMO error decode (16-bit)
   const bamo = parseInt(d.error_bamo) || 0;
   const activeErrors = BAMO_ERRORS.filter(e => (bamo >> e.bit) & 1);
@@ -1941,10 +1857,8 @@ setInterval(() => {
 }, 1000);
 
 // ==============================
-//  START
+//  START — langsung buka modal
 // ==============================
-initCharts();
-startChartRefresh();
 openModal();
 
 // ==============================
@@ -1961,8 +1875,7 @@ const history = {
   sus_fl:[], sus_fr:[], sus_rl:[], sus_rr:[],
   lv_v:[], lv_a:[],
   hv_v:[], hv_a:[], hv_t:[],
-  v_motor:[], i_motor:[], suhu_motor:[], suhu_igbt:[],
-  steering:[], lat_h:[], lng_h:[]
+  v_motor:[], i_motor:[], suhu_motor:[], suhu_igbt:[]
 };
 
 function pushHistory(d) {
@@ -1995,9 +1908,6 @@ function pushHistory(d) {
   push(history.i_motor,   parseFloat(d.i_motor)||0);
   push(history.suhu_motor,parseFloat(d.suhu_motor)||0);
   push(history.suhu_igbt, parseFloat(d.suhu_igbt)||0);
-  push(history.steering, parseFloat(d.steering_angle)||0);
-  push(history.lat_h,     parseFloat(d.lat)||0);
-  push(history.lng_h,     parseFloat(d.lng)||0);
 }
 
 function clearAllHistory() {
@@ -2025,9 +1935,7 @@ function getLabels() {
   return ts.map(t => (t - t0).toFixed(1) + 's');
 }
 
-// ==============================
-//  CHART.JS CONFIG
-// ==============================
+// Chart.js global defaults
 Chart.defaults.color = '#4a6090';
 Chart.defaults.borderColor = '#1e3360';
 Chart.defaults.font.family = 'Share Tech Mono, monospace';
@@ -2036,186 +1944,85 @@ Chart.defaults.animation = false;
 Chart.defaults.elements.point.radius = 0;
 Chart.defaults.elements.line.borderWidth = 1.5;
 Chart.defaults.plugins.legend.labels.boxWidth = 10;
-Chart.defaults.plugins.legend.labels.padding = 6;
+Chart.defaults.plugins.legend.labels.padding = 8;
 
-function mkOpts(yLabel, yUnit, y2Label) {
-  const opts = {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: true, position: 'top' },
-      tooltip: { enabled: true }
-    },
-    scales: {
-      x: {
-        ticks: { maxTicksLimit: 5, maxRotation: 0, color: '#4a6090' },
-        grid: { color: 'rgba(30,51,96,0.4)' }
-      },
-      y: {
-        ticks: { maxTicksLimit: 5, color: '#4a6090' },
-        grid: { color: 'rgba(30,51,96,0.4)' },
-        title: { display: !!yLabel, text: yLabel || '', color: '#4a6090', font: { size: 9 } }
-      }
-    }
-  };
-  if (y2Label) {
-    opts.scales.y2 = {
-      type: 'linear', position: 'right',
-      ticks: { maxTicksLimit: 5, color: '#4a6090' },
-      grid: { drawOnChartArea: false },
-      title: { display: true, text: y2Label, color: '#4a6090', font: { size: 9 } }
-    };
+const CHART_OPTS = {
+  responsive: true, maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: { legend: { display: true, position: 'top' }, tooltip: { enabled: true } },
+  scales: {
+    x: { ticks: { maxTicksLimit: 6, maxRotation: 0 }, grid: { color: 'rgba(30,51,96,0.5)' } },
+    y: { ticks: { maxTicksLimit: 5 }, grid: { color: 'rgba(30,51,96,0.5)' } }
   }
-  return opts;
+};
+
+function mkDataset(label, color, data=[]) {
+  return { label, data, borderColor: color, backgroundColor: color + '22', fill: false, tension: 0.3 };
 }
 
-function mkDS(label, color, yAxis) {
-  const ds = {
-    label, data: [],
-    borderColor: color,
-    backgroundColor: color + '18',
-    fill: false,
-    tension: 0.3,
-    pointRadius: 0,
-    borderWidth: 1.5
-  };
-  if (yAxis) ds.yAxisID = yAxis;
-  return ds;
-}
+// Color palette
+const C = {
+  gold: '#d4a843', gold2: '#f5cc6a', gold3: '#7a5a18',
+  cyan: '#3dd6f5', cyan2: '#1a8090',
+  green: '#2ecc71', red: '#e74c3c', amber: '#f39c12',
+  purple: '#9b59b6', blue: '#3498db', pink: '#e91e8c',
+  teal: '#1abc9c', orange: '#e67e22', lime: '#cddc39'
+};
 
 let charts = {};
 
 function initCharts() {
-  const make = (id, datasets, opts) =>
-    new Chart(document.getElementById(id), { type: 'line', data: { labels: [], datasets }, options: opts });
+  const mk = (id, datasets, yLabel='', y2=null) => {
+    const opts = JSON.parse(JSON.stringify(CHART_OPTS));
+    opts.scales.y.title = { display: !!yLabel, text: yLabel, color: '#4a6090' };
+    if (y2) {
+      opts.scales.y2 = {
+        type:'linear', position:'right',
+        ticks:{ maxTicksLimit:5 },
+        grid:{ drawOnChartArea:false },
+        title:{ display:true, text:y2.label, color:'#4a6090' }
+      };
+      datasets[y2.idx].yAxisID = 'y2';
+    }
+    return new Chart(document.getElementById(id), { type:'line', data:{ labels:[], datasets }, options: opts });
+  };
 
-  // 1. APPS
-  charts.cApps = make('cApps',
-    [mkDS('APPS', '#d4a843'), mkDS('BSE', '#9b59b6')],
-    mkOpts('%'));
-
-  // 2. LV Voltage
-  charts.cLvV = make('cLvV',
-    [mkDS('LV Voltage', '#d4a843')],
-    mkOpts('V'));
-
-  // 3. LV Current
-  charts.cLvA = make('cLvA',
-    [mkDS('LV Current', '#e74c3c')],
-    mkOpts('A'));
-
-  // 4. Suspension FL & FR
-  charts.cSusFront = make('cSusFront',
-    [mkDS('FL', '#3dd6f5'), mkDS('FR', '#2ecc71')],
-    mkOpts('%'));
-
-  // 5. Suspension RL & RR
-  charts.cSusRear = make('cSusRear',
-    [mkDS('RL', '#f39c12'), mkDS('RR', '#e74c3c')],
-    mkOpts('%'));
-
-  // 6. GPS Latitude
-  charts.cLat = make('cLat',
-    [mkDS('Latitude', '#3dd6f5')],
-    mkOpts('°'));
-
-  // 7. GPS Longitude
-  charts.cLng = make('cLng',
-    [mkDS('Longitude', '#2ecc71')],
-    mkOpts('°'));
-
-  // 8. RPM Utama
-  charts.cRpmMain = make('cRpmMain',
-    [mkDS('RPM Utama', '#f5cc6a')],
-    mkOpts('rpm'));
-
-  // 9. RPM RL & RR
-  charts.cRpmWheel = make('cRpmWheel',
-    [mkDS('RPM RL', '#3dd6f5'), mkDS('RPM RR', '#1abc9c')],
-    mkOpts('rpm'));
-
-  // 10. Speed
-  charts.cSpeed = make('cSpeed',
-    [mkDS('Speed', '#3dd6f5')],
-    mkOpts('km/h'));
-
-  // 11. KWH
-  charts.cKwh = make('cKwh',
-    [mkDS('kWh', '#f39c12')],
-    mkOpts('kWh'));
-
-  // 12. HV Voltage
-  charts.cHvV = make('cHvV',
-    [mkDS('HV Voltage', '#f5cc6a')],
-    mkOpts('V'));
-
-  // 13. HV Current
-  charts.cHvA = make('cHvA',
-    [mkDS('HV Current', '#e74c3c')],
-    mkOpts('A'));
-
-  // 14. HV Temp
-  charts.cHvT = make('cHvT',
-    [mkDS('HV Temp', '#f39c12')],
-    mkOpts('°C'));
-
-  // 15. Motor Voltage
-  charts.cMtrV = make('cMtrV',
-    [mkDS('Motor V', '#3dd6f5')],
-    mkOpts('V'));
-
-  // 16. Motor Current
-  charts.cMtrA = make('cMtrA',
-    [mkDS('Motor A', '#e74c3c')],
-    mkOpts('A'));
-
-  // 17. Motor Temp
-  charts.cMtrT = make('cMtrT',
-    [mkDS('MTR °C', '#f39c12'), mkDS('IGBT °C', '#e74c3c')],
-    mkOpts('°C'));
+  charts.apps  = mk('cApps',  [mkDataset('APPS','#d4a843'), mkDataset('BSE','#9b59b6')], '%');
+  charts.rpm   = mk('cRpm',   [mkDataset('RPM','#f5cc6a'), mkDataset('RL','#3dd6f5'), mkDataset('RR','#1abc9c')], 'rpm');
+  charts.speed = mk('cSpeed', [mkDataset('KM/H','#3dd6f5'), mkDataset('KWH','#f39c12')], '', {idx:1, label:'kWh'});
+  charts.imu   = mk('cImu',   [mkDataset('ROLL','#e74c3c'), mkDataset('PITCH','#3498db'), mkDataset('YAW','#2ecc71')], '°');
+  charts.sus   = mk('cSus',   [mkDataset('FL','#d4a843'), mkDataset('FR','#f5cc6a'), mkDataset('RL','#3dd6f5'), mkDataset('RR','#1abc9c')], '%');
+  charts.lv    = mk('cLv',    [mkDataset('V','#d4a843'), mkDataset('A','#e74c3c')], '', {idx:1, label:'A'});
+  charts.hv    = mk('cHv',    [mkDataset('V','#f5cc6a'), mkDataset('A','#e74c3c'), mkDataset('°C','#f39c12')], '', {idx:2, label:'°C'});
+  charts.motor = mk('cMotor', [mkDataset('V','#3dd6f5'), mkDataset('A','#e74c3c')], '', {idx:1, label:'A'});
+  charts.temp  = mk('cTemp',  [mkDataset('MTR °C','#f39c12'), mkDataset('IGBT °C','#e74c3c'), mkDataset('HV °C','#9b59b6')], '°C');
 }
 
 function refreshCharts() {
-  if (!charts.cApps) return;
   const labels = getLabels();
-
-  const upd = (key, arrays) => {
-    const c = charts[key];
-    if (!c) return;
-    c.data.labels = labels;
-    arrays.forEach((arr, i) => {
-      if (c.data.datasets[i]) c.data.datasets[i].data = getSlice(arr);
-    });
-    c.update('none');
+  const upd = (chart, dataArrays) => {
+    chart.data.labels = labels;
+    dataArrays.forEach((arr, i) => { chart.data.datasets[i].data = getSlice(arr); });
+    chart.update('none');
   };
 
-  upd('cApps',     [history.apps,     history.bse]);
-  upd('cLvV',      [history.lv_v]);
-  upd('cLvA',      [history.lv_a]);
-  upd('cSusFront', [history.sus_fl,   history.sus_fr]);
-  upd('cSusRear',  [history.sus_rl,   history.sus_rr]);
-  upd('cLat',      [history.lat_h]);
-  upd('cLng',      [history.lng_h]);
-  upd('cRpmMain',  [history.rpm]);
-  upd('cRpmWheel', [history.rpm_rl,   history.rpm_rr]);
-  upd('cSpeed',    [history.speed]);
-  upd('cKwh',      [history.kwh]);
-  upd('cHvV',      [history.hv_v]);
-  upd('cHvA',      [history.hv_a]);
-  upd('cHvT',      [history.hv_t]);
-  upd('cMtrV',     [history.v_motor]);
-  upd('cMtrA',     [history.i_motor]);
-  upd('cMtrT',     [history.suhu_motor, history.suhu_igbt]);
+  upd(charts.apps,  [history.apps,  history.bse]);
+  upd(charts.rpm,   [history.rpm,   history.rpm_rl, history.rpm_rr]);
+  upd(charts.speed, [history.speed, history.kwh]);
+  upd(charts.imu,   [history.roll,  history.pitch, history.yaw]);
+  upd(charts.sus,   [history.sus_fl, history.sus_fr, history.sus_rl, history.sus_rr]);
+  upd(charts.lv,    [history.lv_v,  history.lv_a]);
+  upd(charts.hv,    [history.hv_v,  history.hv_a, history.hv_t]);
+  upd(charts.motor, [history.v_motor, history.i_motor]);
+  upd(charts.temp,  [history.suhu_motor, history.suhu_igbt, history.hv_t]);
 }
 
-// Refresh hanya saat tab chart aktif, setiap 500ms
+// Update charts every 500ms to avoid overload
 let chartTimer = null;
 function startChartRefresh() {
   if (chartTimer) return;
   chartTimer = setInterval(() => {
-    if (document.getElementById('pageChart').classList.contains('active')) {
-      refreshCharts();
-    }
+    if (document.getElementById('pageChart').classList.contains('active')) refreshCharts();
   }, 500);
 }
 
