@@ -1097,6 +1097,8 @@ body::before {
       <div class="conn-dot" id="connDot"></div>
       <span id="connText">DISCONNECTED</span>
     </div>
+    <span class="bottom-msgage" id="logStatus" style="display:none;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--red);">00:00 · 0 rows</span>
+    <button class="cfg-btn" id="logBtn" onclick="toggleLogging()" style="border-color:var(--red);color:var(--red);">● REC</button>
     <button class="cfg-btn" onclick="openDebug()">🐞 DEBUG</button>
     <button class="cfg-btn" onclick="openModal()">⚙ CONFIG</button>
   </div>
@@ -1544,12 +1546,18 @@ body::before {
       <input id="cfgClientId" type="text" placeholder="auto">
     </div>
 
-    <div class="fg" style="margin-bottom:0">
+    <div class="fg">
       <label>CREDENTIALS <span style="opacity:.4">(opsional)</span></label>
       <div class="fg-row2">
         <input id="cfgUser" type="text" placeholder="username">
         <input id="cfgPass" type="password" placeholder="password">
       </div>
+    </div>
+
+    <div class="fg" style="margin-bottom:0">
+      <label>GOOGLE DRIVE WEBHOOK URL <span style="opacity:.4">(opsional — auto-upload CSV)</span></label>
+      <input id="cfgDriveWebhook" type="text" placeholder="https://script.google.com/macros/s/xxxxx/exec">
+      <div class="fg-hint">URL Web App dari Google Apps Script yang terhubung ke folder Drive kamu. Kosongkan kalau tidak mau auto-upload — CSV tetap ke-download lokal setiap STOP.</div>
     </div>
 
     <div class="modal-btns">
@@ -1609,7 +1617,8 @@ let cfg = {
   broker: 'broker.hivemq.com', port: 8884,
   topic: 'arjuna/data',
   clientId: 'arjuna_dash_' + Math.floor(Math.random()*9000+1000),
-  useSSL: true, user: '', pass: ''
+  useSSL: true, user: '', pass: '',
+  driveWebhook: ''
 };
 
 let d = {
@@ -1637,6 +1646,15 @@ let lastRawPayload = '';
 let lastRawTopic = '';
 let lastParsedOk = null;
 let noDataTimer = null;
+
+// ==============================
+//  CSV LOGGING STATE
+// ==============================
+let isLogging = false;
+let logRows = [];
+let logStartTime = null;
+let logSessionName = '';
+const LOG_HEADERS = ['timestamp_iso','timestamp_unix', ...EXPECTED_KEYS];
 
 // BAMO error table (bit 0–15)
 const BAMO_ERRORS = [
@@ -1894,6 +1912,13 @@ function mqttConnect() {
       Object.assign(d, p);
       updateUI();
       setLog('[#' + msgCount + ' ' + new Date().toLocaleTimeString() + '] ' + msg.payloadString.substring(0,120));
+
+      if (isLogging) {
+        const now = new Date();
+        const row = { timestamp_iso: now.toISOString(), timestamp_unix: (now.getTime()/1000).toFixed(3) };
+        EXPECTED_KEYS.forEach(k => row[k] = d[k]);
+        logRows.push(row);
+      }
     } catch(e) {
       lastParsedOk = null;
       setLog('⚠ PARSE ERROR (#' + msgCount + '): ' + e.message + ' — payload: ' + msg.payloadString.substring(0,150));
@@ -1951,6 +1976,116 @@ function setConn(ok) {
 function setLog(msg) { el('logLine').textContent = msg; }
 
 // ==============================
+//  CSV LOGGING — START / STOP
+// ==============================
+function toggleLogging() {
+  if (isLogging) stopLogging(); else startLogging();
+}
+
+function startLogging() {
+  isLogging = true;
+  logRows = [];
+  logStartTime = Date.now();
+  logSessionName = 'arjuna_log_' + fmtTimestampForFilename(new Date());
+  updateLoggingBtn();
+  setLog('📝 Logging dimulai: ' + logSessionName + '.csv');
+}
+
+async function stopLogging() {
+  isLogging = false;
+  updateLoggingBtn();
+
+  if (logRows.length === 0) {
+    setLog('Logging dihentikan — 0 baris tercatat (tidak ada data masuk selama sesi ini).');
+    return;
+  }
+
+  const csv = buildCSV(logRows);
+  const filename = logSessionName + '.csv';
+  downloadCSV(csv, filename);
+  setLog('💾 CSV tersimpan lokal: ' + filename + ' (' + logRows.length + ' baris)');
+
+  if (cfg.driveWebhook) {
+    await uploadToDrive(csv, filename);
+  } else {
+    setLog('💾 CSV tersimpan lokal (' + logRows.length + ' baris). Isi "GOOGLE DRIVE WEBHOOK URL" di CONFIG untuk auto-upload ke Drive.');
+  }
+}
+
+function fmtTimestampForFilename(dt) {
+  const p = n => String(n).padStart(2,'0');
+  return dt.getFullYear() + p(dt.getMonth()+1) + p(dt.getDate()) + '_' + p(dt.getHours()) + p(dt.getMinutes()) + p(dt.getSeconds());
+}
+
+function csvEscape(val) {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+function buildCSV(rows) {
+  const header = LOG_HEADERS.join(',');
+  const lines = rows.map(r => LOG_HEADERS.map(h => csvEscape(r[h])).join(','));
+  return [header, ...lines].join('\r\n');
+}
+
+function downloadCSV(csvContent, filename) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function uploadToDrive(csvContent, filename) {
+  setLog('☁ Mengupload "' + filename + '" ke Google Drive...');
+  const payload = JSON.stringify({ filename, content: csvContent });
+
+  try {
+    const res = await fetch(cfg.driveWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari CORS preflight
+      body: payload
+    });
+    if (res.ok) {
+      setLog('✅ Upload ke Google Drive berhasil: ' + filename);
+    } else {
+      setLog('⚠ Drive merespon status ' + res.status + '. CSV tetap tersimpan lokal — cek Apps Script deployment.');
+    }
+  } catch (e) {
+    // Kemungkinan respons diblokir CORS saat dibaca — request tetap terkirim & diproses server.
+    try {
+      await fetch(cfg.driveWebhook, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: payload
+      });
+      setLog('☁ Permintaan upload terkirim (respons tak terbaca karena CORS) — cek folder Drive untuk memastikan "' + filename + '" muncul.');
+    } catch (e2) {
+      setLog('⚠ Upload ke Drive gagal total: ' + e2.message + '. CSV tetap tersimpan lokal.');
+    }
+  }
+}
+
+function updateLoggingBtn() {
+  const btn = el('logBtn');
+  const status = el('logStatus');
+  if (isLogging) {
+    btn.textContent = '■ STOP';
+    btn.style.background = 'rgba(231,76,60,0.18)';
+    status.style.display = '';
+  } else {
+    btn.textContent = '● REC';
+    btn.style.background = '';
+    status.style.display = 'none';
+  }
+}
+
+// ==============================
 //  MODAL — CONFIG
 // ==============================
 let sslOn = true;
@@ -1962,6 +2097,7 @@ function openModal() {
   el('cfgClientId').value = '';
   el('cfgUser').value     = cfg.user||'';
   el('cfgPass').value     = cfg.pass||'';
+  el('cfgDriveWebhook').value = cfg.driveWebhook||'';
   sslOn = cfg.useSSL;
   updateSSLBox();
   el('modalBg').classList.add('open');
@@ -1991,8 +2127,9 @@ function applyConfig() {
                    || 'arjuna_dash_' + Math.floor(Math.random()*9000+1000);
   const user     = el('cfgUser').value.trim();
   const pass     = el('cfgPass').value;
+  const driveWebhook = el('cfgDriveWebhook').value.trim();
 
-  cfg = {broker, port, topic, clientId, useSSL:sslOn, user, pass};
+  cfg = {broker, port, topic, clientId, useSSL:sslOn, user, pass, driveWebhook};
   closeModal();
   mqttDisconnect();
   setTimeout(mqttConnect, 400);
@@ -2068,6 +2205,14 @@ setInterval(() => {
 
   // kalau modal debug lagi terbuka, refresh juga live
   if (el('debugBg').classList.contains('open')) updateDebugStats();
+
+  // update status recording (elapsed time + jumlah baris)
+  if (isLogging) {
+    const elapsed = Math.floor((Date.now() - logStartTime)/1000);
+    const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+    const ss = String(elapsed%60).padStart(2,'0');
+    el('logStatus').textContent = mm + ':' + ss + ' · ' + logRows.length + ' rows';
+  }
 }, 1000);
 
 // ==============================
