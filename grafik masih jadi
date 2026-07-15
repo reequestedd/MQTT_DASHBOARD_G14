@@ -652,6 +652,8 @@ body::before {
 .bottom-broker { color: var(--gold3); }
 .bottom-log { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--text-dim); }
 .bottom-clock { color: var(--gold); letter-spacing:1px; }
+.bottom-msgcount { color: var(--cyan); }
+.bottom-msgage { color: var(--text-dim); }
 
 /* ====== MODAL ====== */
 .modal-bg {
@@ -669,6 +671,8 @@ body::before {
   width: 440px;
   box-shadow: 0 0 60px rgba(212,168,67,0.1);
 }
+
+.modal.wide { width: 620px; max-height: 82vh; overflow-y: auto; }
 
 .modal-hdr {
   font-family:'Orbitron',monospace;
@@ -1003,6 +1007,61 @@ body::before {
 }
 .span-btn.on { background: var(--gold3); border-color: var(--gold); color: var(--gold2); }
 
+/* ====== DEBUG PANEL ====== */
+.dbg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.dbg-stat {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.dbg-stat-num {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px; font-weight: 700;
+  color: var(--gold2);
+  display: block;
+}
+.dbg-stat-lbl {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+}
+.dbg-section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 2px; color: var(--text-dim);
+  margin: 14px 0 6px 0;
+}
+.dbg-raw {
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; color: var(--cyan);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 110px;
+  overflow-y: auto;
+}
+.dbg-key-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  margin-bottom: 3px;
+}
+.dbg-key-row.ok   { color: var(--green); border-color: rgba(46,204,113,0.3); background: rgba(46,204,113,0.06); }
+.dbg-key-row.miss { color: var(--red);   border-color: rgba(231,76,60,0.4);  background: rgba(231,76,60,0.06); }
+.dbg-key-list { max-height: 220px; overflow-y: auto; }
+.dbg-extra { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--amber); }
+
 </style>
 <!-- Leaflet Maps -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -1038,6 +1097,7 @@ body::before {
       <div class="conn-dot" id="connDot"></div>
       <span id="connText">DISCONNECTED</span>
     </div>
+    <button class="cfg-btn" onclick="openDebug()">🐞 DEBUG</button>
     <button class="cfg-btn" onclick="openModal()">⚙ CONFIG</button>
   </div>
 
@@ -1442,6 +1502,10 @@ body::before {
     <span>MQTT:</span>
     <span class="bottom-broker" id="brokerLabel">—</span>
     <span>|</span>
+    <span class="bottom-msgcount" id="msgCountLabel">MSG: 0</span>
+    <span>|</span>
+    <span class="bottom-msgage" id="msgAgeLabel">—</span>
+    <span>|</span>
     <span class="bottom-log" id="logLine">Menunggu koneksi...</span>
     <span class="bottom-clock" id="clock">--:--:--</span>
   </div>
@@ -1495,6 +1559,48 @@ body::before {
   </div>
 </div>
 
+<!-- ====== MODAL DEBUG ====== -->
+<div class="modal-bg" id="debugBg">
+  <div class="modal wide">
+    <div class="modal-hdr">🐞 MQTT DEBUG / DIAGNOSTIK</div>
+
+    <div class="dbg-grid">
+      <div class="dbg-stat">
+        <span class="dbg-stat-num" id="dbgConn">—</span>
+        <span class="dbg-stat-lbl">STATUS</span>
+      </div>
+      <div class="dbg-stat">
+        <span class="dbg-stat-num" id="dbgMsgCount">0</span>
+        <span class="dbg-stat-lbl">PESAN MASUK</span>
+      </div>
+      <div class="dbg-stat">
+        <span class="dbg-stat-num" id="dbgLastAge">—</span>
+        <span class="dbg-stat-lbl">PESAN TERAKHIR</span>
+      </div>
+    </div>
+
+    <div class="fg-hint" style="margin-bottom:8px;">
+      Topic subscribe saat ini: <b id="dbgTopicNow" style="color:var(--gold2)">—</b>
+      &nbsp;|&nbsp; Topic pesan terakhir: <b id="dbgLastTopic" style="color:var(--cyan)">—</b>
+    </div>
+
+    <div class="dbg-section-title">RAW PAYLOAD TERAKHIR</div>
+    <div class="dbg-raw" id="dbgRawPayload">Belum ada data masuk.</div>
+
+    <div class="dbg-section-title">STATUS FIELD (dibanding yang dibutuhkan dashboard)</div>
+    <div class="dbg-key-list" id="dbgKeyList">
+      <div style="color:var(--text-dim);font-size:11px;">Kirim data dulu untuk melihat perbandingan field.</div>
+    </div>
+
+    <div class="dbg-section-title">FIELD EKSTRA (dikirim tapi tidak dipakai dashboard)</div>
+    <div class="dbg-extra" id="dbgExtraKeys">—</div>
+
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeDebug()">TUTUP</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==============================
 //  CONFIG & STATE
@@ -1518,6 +1624,19 @@ let d = {
   lat:null, lng:null, speed:0, heading:0, altitude:0,
   fuse:0xFF, statusbit:0
 };
+
+// Field yang benar-benar dipakai dashboard — dipakai untuk debug/diagnostik
+const EXPECTED_KEYS = Object.keys(d);
+
+// ==============================
+//  DEBUG / DIAGNOSTIC STATE
+// ==============================
+let msgCount = 0;
+let lastMsgTime = null;
+let lastRawPayload = '';
+let lastRawTopic = '';
+let lastParsedOk = null;
+let noDataTimer = null;
 
 // BAMO error table (bit 0–15)
 const BAMO_ERRORS = [
@@ -1744,6 +1863,15 @@ function mqttConnect() {
   el('brokerLabel').textContent = broker + ':' + port;
   setLog('Menghubungkan ke ' + broker + ':' + port + (useSSL?' [SSL]':'') + '...');
 
+  // reset diagnostik setiap kali (re)connect
+  msgCount = 0;
+  lastMsgTime = null;
+  lastRawPayload = '';
+  lastRawTopic = '';
+  lastParsedOk = null;
+  clearTimeout(noDataTimer);
+  updateDebugStats();
+
   mqttClient = new Paho.Client(broker, port, '/mqtt', clientId);
 
   mqttClient.onConnectionLost = (r) => {
@@ -1755,22 +1883,46 @@ function mqttConnect() {
   };
 
   mqttClient.onMessageArrived = (msg) => {
+    msgCount++;
+    lastMsgTime = Date.now();
+    lastRawPayload = msg.payloadString;
+    lastRawTopic = msg.destinationName;
+
     try {
       const p = JSON.parse(msg.payloadString);
+      lastParsedOk = p;
       Object.assign(d, p);
       updateUI();
-      setLog('[' + new Date().toLocaleTimeString() + '] ' + msg.payloadString.substring(0,100));
+      setLog('[#' + msgCount + ' ' + new Date().toLocaleTimeString() + '] ' + msg.payloadString.substring(0,120));
     } catch(e) {
-      setLog('Parse error: ' + e.message);
+      lastParsedOk = null;
+      setLog('⚠ PARSE ERROR (#' + msgCount + '): ' + e.message + ' — payload: ' + msg.payloadString.substring(0,150));
     }
+    updateDebugStats();
   };
 
   const opts = {
     useSSL, timeout:10, keepAliveInterval:60,
     onSuccess: () => {
       setConn(true);
-      setLog('Terhubung. Topic: ' + topic);
-      mqttClient.subscribe(topic);
+      setLog('Terhubung. Subscribing ke topic: ' + topic + ' ...');
+
+      // subscribe dengan callback sukses/gagal sendiri —
+      // tanpa ini, kegagalan subscribe (mis. ACL broker) tidak akan pernah terlihat
+      mqttClient.subscribe(topic, {
+        onSuccess: () => {
+          setLog('Subscribe OK: ' + topic + ' — menunggu data masuk...');
+          clearTimeout(noDataTimer);
+          noDataTimer = setTimeout(() => {
+            if (msgCount === 0) {
+              setLog('⚠ Belum ada data masuk dalam 6 detik. Cek: topic sama persis? publisher aktif? — buka DEBUG untuk detail.');
+            }
+          }, 6000);
+        },
+        onFailure: (e) => {
+          setLog('⚠ SUBSCRIBE GAGAL: ' + (e.errorMessage || 'unknown error') + ' — cek topic/ACL broker.');
+        }
+      });
     },
     onFailure: (e) => {
       setConn(false);
@@ -1784,6 +1936,7 @@ function mqttConnect() {
 
 function mqttDisconnect() {
   autoRetry = false;
+  clearTimeout(noDataTimer);
   if (mqttClient && mqttClient.isConnected()) {
     try { mqttClient.disconnect(); } catch(e){}
   }
@@ -1798,7 +1951,7 @@ function setConn(ok) {
 function setLog(msg) { el('logLine').textContent = msg; }
 
 // ==============================
-//  MODAL
+//  MODAL — CONFIG
 // ==============================
 let sslOn = true;
 
@@ -1850,10 +2003,71 @@ el('modalBg').addEventListener('click', (e) => {
 });
 
 // ==============================
-//  CLOCK
+//  MODAL — DEBUG
+// ==============================
+function openDebug() {
+  updateDebugStats();
+  el('debugBg').classList.add('open');
+}
+function closeDebug() { el('debugBg').classList.remove('open'); }
+
+el('debugBg').addEventListener('click', (e) => {
+  if (e.target === el('debugBg')) closeDebug();
+});
+
+function updateDebugStats() {
+  if (!el('dbgConn')) return;
+
+  el('dbgConn').textContent = (mqttClient && mqttClient.isConnected && mqttClient.isConnected())
+    ? 'CONNECTED' : 'DISCONNECTED';
+  el('dbgMsgCount').textContent = msgCount;
+  el('dbgLastAge').textContent  = lastMsgTime
+    ? Math.round((Date.now() - lastMsgTime)/1000) + 's lalu'
+    : '—';
+  el('dbgTopicNow').textContent  = cfg.topic;
+  el('dbgLastTopic').textContent = lastRawTopic || '—';
+  el('dbgRawPayload').textContent = lastRawPayload || 'Belum ada data masuk.';
+
+  const keyListEl  = el('dbgKeyList');
+  const extraEl    = el('dbgExtraKeys');
+
+  if (msgCount === 0) {
+    keyListEl.innerHTML = '<div style="color:var(--text-dim);font-size:11px;">Belum ada pesan masuk sama sekali. Cek topic &amp; pastikan publisher aktif mengirim ke broker/topic yang sama.</div>';
+    extraEl.textContent = '—';
+    return;
+  }
+
+  if (!lastParsedOk) {
+    keyListEl.innerHTML = '<div style="color:var(--red);font-size:11px;">Payload terakhir BUKAN JSON valid — dashboard tidak bisa membaca data apa pun. Lihat "RAW PAYLOAD TERAKHIR" di atas dan pastikan publisher mengirim JSON object yang valid, contoh: {"rpm":1200,"apps":45}</div>';
+    extraEl.textContent = '—';
+    return;
+  }
+
+  const p = lastParsedOk;
+  keyListEl.innerHTML = EXPECTED_KEYS.map(k => {
+    const present = Object.prototype.hasOwnProperty.call(p, k);
+    const val = present ? JSON.stringify(p[k]) : 'tidak dikirim';
+    return `<div class="dbg-key-row ${present ? 'ok' : 'miss'}"><span>${k}</span><span>${present ? '✓ ' + val : '✗ ' + val}</span></div>`;
+  }).join('');
+
+  const extra = Object.keys(p).filter(k => !EXPECTED_KEYS.includes(k));
+  extraEl.textContent = extra.length ? extra.join(', ') : '(tidak ada)';
+}
+
+// ==============================
+//  CLOCK + LIVE DEBUG REFRESH
 // ==============================
 setInterval(() => {
   el('clock').textContent = new Date().toTimeString().substring(0,8);
+
+  // update label pesan di bottom bar tiap detik biar kelihatan "hidup" atau "diam"
+  el('msgCountLabel').textContent = 'MSG: ' + msgCount;
+  el('msgAgeLabel').textContent = lastMsgTime
+    ? Math.round((Date.now() - lastMsgTime)/1000) + 's lalu'
+    : 'belum ada data';
+
+  // kalau modal debug lagi terbuka, refresh juga live
+  if (el('debugBg').classList.contains('open')) updateDebugStats();
 }, 1000);
 
 // ==============================
@@ -2059,6 +2273,9 @@ function setSpan(sec, btn) {
   refreshCharts();
 }
 
+// init charts & chart auto refresh loop
+initCharts();
+startChartRefresh();
 
 </script>
 </body>
