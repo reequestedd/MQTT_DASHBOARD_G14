@@ -1097,8 +1097,8 @@ body::before {
       <div class="conn-dot" id="connDot"></div>
       <span id="connText">DISCONNECTED</span>
     </div>
-    <span class="bottom-msgage" id="logStatus" style="display:none;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--red);">00:00 · 0 rows</span>
-    <button class="cfg-btn" id="logBtn" onclick="toggleLogging()" style="border-color:var(--red);color:var(--red);">● REC</button>
+    <span id="logStatus" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);">LOG: OFF</span>
+    <button class="cfg-btn" onclick="manualSaveNow()" style="border-color:var(--cyan);color:var(--cyan);">💾 SAVE NOW</button>
     <button class="cfg-btn" onclick="openDebug()">🐞 DEBUG</button>
     <button class="cfg-btn" onclick="openModal()">⚙ CONFIG</button>
   </div>
@@ -1557,7 +1557,13 @@ body::before {
     <div class="fg" style="margin-bottom:0">
       <label>GOOGLE DRIVE WEBHOOK URL <span style="opacity:.4">(opsional — auto-upload CSV)</span></label>
       <input id="cfgDriveWebhook" type="text" placeholder="https://script.google.com/macros/s/xxxxx/exec">
-      <div class="fg-hint">URL Web App dari Google Apps Script yang terhubung ke folder Drive kamu. Kosongkan kalau tidak mau auto-upload — CSV tetap ke-download lokal setiap STOP.</div>
+      <div class="fg-hint">URL Web App dari Google Apps Script yang terhubung ke folder Drive kamu. Kosongkan kalau tidak mau auto-upload — CSV tetap ke-download lokal secara berkala.</div>
+    </div>
+
+    <div class="fg" style="margin-bottom:0;margin-top:13px;">
+      <label>AUTOSAVE INTERVAL <span style="opacity:.4">(menit)</span></label>
+      <input id="cfgAutosaveMin" type="number" min="0.5" step="0.5" placeholder="5" value="5">
+      <div class="fg-hint">Logging mulai otomatis begitu MQTT connect, dan setiap sekian menit buffer data disimpan jadi file CSV baru (lokal + Drive kalau webhook diisi). Terakhir juga otomatis disimpan saat koneksi terputus.</div>
     </div>
 
     <div class="modal-btns">
@@ -1618,7 +1624,8 @@ let cfg = {
   topic: 'arjuna/data',
   clientId: 'arjuna_dash_' + Math.floor(Math.random()*9000+1000),
   useSSL: true, user: '', pass: '',
-  driveWebhook: ''
+  driveWebhook: 'https://script.google.com/macros/s/AKfycbwAp7Fy3ih9GrhIhgPj38bixuc7tUMRHB0Gb-PAOlqQM9S6Wceo5W5mVwv-nocMEswd/exec',
+  autosaveMinutes: 5
 };
 
 let d = {
@@ -1648,12 +1655,16 @@ let lastParsedOk = null;
 let noDataTimer = null;
 
 // ==============================
-//  CSV LOGGING STATE
+//  CSV LOGGING STATE (full automatic)
 // ==============================
 let isLogging = false;
-let logRows = [];
-let logStartTime = null;
-let logSessionName = '';
+let logRows = [];             // buffer baris sejak chunk terakhir di-flush
+let logSessionStart = null;   // kapan auto-logging mulai (saat connect)
+let logChunkStart = null;     // kapan chunk yang sedang berjalan mulai dikumpulkan
+let totalRowsLogged = 0;      // total baris ter-flush sepanjang sesi ini
+let chunkIndex = 0;
+let autosaveTimer = null;
+let nextAutosaveAt = null;
 const LOG_HEADERS = ['timestamp_iso','timestamp_unix', ...EXPECTED_KEYS];
 
 // BAMO error table (bit 0–15)
@@ -1894,6 +1905,7 @@ function mqttConnect() {
 
   mqttClient.onConnectionLost = (r) => {
     setConn(false);
+    stopAutoLogging('koneksi terputus');
     if (r.errorCode !== 0) {
       setLog('Terputus: ' + r.errorMessage + ' — retry 5 detik...');
       if (autoRetry) setTimeout(mqttConnect, 5000);
@@ -1943,6 +1955,7 @@ function mqttConnect() {
               setLog('⚠ Belum ada data masuk dalam 6 detik. Cek: topic sama persis? publisher aktif? — buka DEBUG untuk detail.');
             }
           }, 6000);
+          startAutoLogging();
         },
         onFailure: (e) => {
           setLog('⚠ SUBSCRIBE GAGAL: ' + (e.errorMessage || 'unknown error') + ' — cek topic/ACL broker.');
@@ -1962,6 +1975,7 @@ function mqttConnect() {
 function mqttDisconnect() {
   autoRetry = false;
   clearTimeout(noDataTimer);
+  stopAutoLogging('disconnect / rekonfigurasi manual');
   if (mqttClient && mqttClient.isConnected()) {
     try { mqttClient.disconnect(); } catch(e){}
   }
@@ -1976,40 +1990,73 @@ function setConn(ok) {
 function setLog(msg) { el('logLine').textContent = msg; }
 
 // ==============================
-//  CSV LOGGING — START / STOP
+//  CSV LOGGING — FULL AUTOMATIC
 // ==============================
-function toggleLogging() {
-  if (isLogging) stopLogging(); else startLogging();
-}
+// Mulai otomatis saat MQTT connect+subscribe berhasil.
+// Setiap cfg.autosaveMinutes menit, buffer yang terkumpul di-flush jadi file CSV
+// terpisah (chunk) → didownload lokal + diupload ke Drive (kalau webhook diisi).
+// Berhenti otomatis (dengan flush sisa buffer) saat koneksi putus / disconnect manual.
 
-function startLogging() {
+function startAutoLogging() {
   isLogging = true;
   logRows = [];
-  logStartTime = Date.now();
-  logSessionName = 'arjuna_log_' + fmtTimestampForFilename(new Date());
-  updateLoggingBtn();
-  setLog('📝 Logging dimulai: ' + logSessionName + '.csv');
+  totalRowsLogged = 0;
+  chunkIndex = 0;
+  logSessionStart = Date.now();
+  logChunkStart = Date.now();
+  scheduleAutosave();
+  refreshLogStatusLabel();
+  setLog('📝 Auto-logging aktif — autosave tiap ' + (parseFloat(cfg.autosaveMinutes)||5) + ' menit.');
 }
 
-async function stopLogging() {
+function stopAutoLogging(reason) {
+  if (!isLogging) return;
+  clearTimeout(autosaveTimer);
   isLogging = false;
-  updateLoggingBtn();
+  flushLog(true, reason);
+  refreshLogStatusLabel();
+}
 
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  const ms = Math.max(0.5, parseFloat(cfg.autosaveMinutes) || 5) * 60000;
+  nextAutosaveAt = Date.now() + ms;
+  autosaveTimer = setTimeout(() => {
+    flushLog(false);
+    if (isLogging) scheduleAutosave();
+  }, ms);
+}
+
+async function flushLog(isFinal, reason) {
   if (logRows.length === 0) {
-    setLog('Logging dihentikan — 0 baris tercatat (tidak ada data masuk selama sesi ini).');
+    if (isFinal) setLog('⏹ Auto-logging berhenti' + (reason ? ' (' + reason + ')' : '') + ' — tidak ada baris baru untuk disimpan.');
     return;
   }
 
-  const csv = buildCSV(logRows);
-  const filename = logSessionName + '.csv';
+  chunkIndex++;
+  const rowsToSave = logRows;
+  logRows = [];
+  totalRowsLogged += rowsToSave.length;
+
+  const chunkStartStr = fmtTimestampForFilename(new Date(logChunkStart));
+  logChunkStart = Date.now();
+  const filename = 'arjuna_log_' + chunkStartStr + '_part' + String(chunkIndex).padStart(3,'0') + '.csv';
+  const csv = buildCSV(rowsToSave);
+
   downloadCSV(csv, filename);
-  setLog('💾 CSV tersimpan lokal: ' + filename + ' (' + logRows.length + ' baris)');
+  setLog((isFinal ? '💾 Final save' : '💾 Autosave') + ': ' + filename + ' (' + rowsToSave.length + ' baris)'
+    + (isFinal && reason ? ' — ' + reason : ''));
 
   if (cfg.driveWebhook) {
     await uploadToDrive(csv, filename);
-  } else {
-    setLog('💾 CSV tersimpan lokal (' + logRows.length + ' baris). Isi "GOOGLE DRIVE WEBHOOK URL" di CONFIG untuk auto-upload ke Drive.');
   }
+}
+
+// Tombol manual "SAVE NOW" — paksa flush chunk saat ini juga tanpa nunggu timer
+function manualSaveNow() {
+  if (!isLogging) { setLog('Auto-logging belum aktif (belum connect ke MQTT).'); return; }
+  flushLog(false);
+  scheduleAutosave();
 }
 
 function fmtTimestampForFilename(dt) {
@@ -2041,7 +2088,16 @@ function downloadCSV(csvContent, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+function isLikelyValidWebAppUrl(url) {
+  return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test((url||'').trim());
+}
+
 async function uploadToDrive(csvContent, filename) {
+  if (!isLikelyValidWebAppUrl(cfg.driveWebhook)) {
+    setLog('⚠ URL Drive webhook bukan format Web App "/exec" yang valid (kelihatannya link Library/editor). CSV tetap tersimpan lokal — buka CONFIG dan ganti dengan URL hasil Deploy > Web app.');
+    return;
+  }
+
   setLog('☁ Mengupload "' + filename + '" ke Google Drive...');
   const payload = JSON.stringify({ filename, content: csvContent });
 
@@ -2071,17 +2127,20 @@ async function uploadToDrive(csvContent, filename) {
   }
 }
 
-function updateLoggingBtn() {
-  const btn = el('logBtn');
+function refreshLogStatusLabel() {
   const status = el('logStatus');
   if (isLogging) {
-    btn.textContent = '■ STOP';
-    btn.style.background = 'rgba(231,76,60,0.18)';
-    status.style.display = '';
+    const elapsed = Math.floor((Date.now() - logSessionStart)/1000);
+    const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+    const ss = String(elapsed%60).padStart(2,'0');
+    const remain = Math.max(0, Math.round((nextAutosaveAt - Date.now())/1000));
+    const rmm = String(Math.floor(remain/60)).padStart(2,'0');
+    const rss = String(remain%60).padStart(2,'0');
+    status.style.color = 'var(--green)';
+    status.textContent = 'LOG ON ' + mm + ':' + ss + ' · ' + (totalRowsLogged + logRows.length) + ' rows · autosave ' + rmm + ':' + rss;
   } else {
-    btn.textContent = '● REC';
-    btn.style.background = '';
-    status.style.display = 'none';
+    status.style.color = 'var(--text-dim)';
+    status.textContent = 'LOG: OFF';
   }
 }
 
@@ -2098,6 +2157,7 @@ function openModal() {
   el('cfgUser').value     = cfg.user||'';
   el('cfgPass').value     = cfg.pass||'';
   el('cfgDriveWebhook').value = cfg.driveWebhook||'';
+  el('cfgAutosaveMin').value  = cfg.autosaveMinutes || 5;
   sslOn = cfg.useSSL;
   updateSSLBox();
   el('modalBg').classList.add('open');
@@ -2128,8 +2188,9 @@ function applyConfig() {
   const user     = el('cfgUser').value.trim();
   const pass     = el('cfgPass').value;
   const driveWebhook = el('cfgDriveWebhook').value.trim();
+  const autosaveMinutes = Math.max(0.5, parseFloat(el('cfgAutosaveMin').value) || 5);
 
-  cfg = {broker, port, topic, clientId, useSSL:sslOn, user, pass, driveWebhook};
+  cfg = {broker, port, topic, clientId, useSSL:sslOn, user, pass, driveWebhook, autosaveMinutes};
   closeModal();
   mqttDisconnect();
   setTimeout(mqttConnect, 400);
@@ -2206,13 +2267,8 @@ setInterval(() => {
   // kalau modal debug lagi terbuka, refresh juga live
   if (el('debugBg').classList.contains('open')) updateDebugStats();
 
-  // update status recording (elapsed time + jumlah baris)
-  if (isLogging) {
-    const elapsed = Math.floor((Date.now() - logStartTime)/1000);
-    const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
-    const ss = String(elapsed%60).padStart(2,'0');
-    el('logStatus').textContent = mm + ':' + ss + ' · ' + logRows.length + ' rows';
-  }
+  // update status auto-logging (elapsed time, jumlah baris, countdown autosave)
+  refreshLogStatusLabel();
 }, 1000);
 
 // ==============================
